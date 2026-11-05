@@ -2,7 +2,7 @@
 
 **Mind Shift Battle System · M.S.B.S. Ver.7.7 · Windows-host field deployment**
 
-Developed and distributed jointly by **Sentinel Electronics** and **General Aerodyne** with support from **Open Virturon Gate** and the **Limited War Commission**
+Developed and distributed jointly by **Sentinel Electronics** and **General Aerodyne** with support from **Open Virturon Gate** and the **Limited War Commission**.
 Authorized for Virtuaroid pilots of all affiliated Plants.
 
 > [!NOTE]
