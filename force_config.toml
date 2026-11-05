@@ -1,0 +1,56 @@
+# Manual codegen overrides for Virtual-On Force (Xbox 360 disc, TID 5345084C)
+# Keyed by guest address; see the ReXGlue wiki "rexglue CLI Configuration File".
+
+[functions]
+# Tail-call targets that analysis left unclaimed: 8-byte gaps between known
+# functions, each reached by `b` from another function.
+0x827FA750 = { size = 8 }  # from 0x827FA034, 0x827FCBE4
+0x8285EB40 = { size = 8 }  # from 0x8286536C
+
+# Functions reached only through pointers (static initializer and callback tables,
+# addresses built in code) that analysis folded into the preceding function.
+# Found with tools/find_missing_funcs.py.
+0x82569D18 = {}  # ptr at 0x82569d74
+0x8263ED40 = {}  # ptr at 0x823201b4, 0x8232043c
+0x8263ED60 = {}  # ptr at 0x826483cc, 0x826484ac
+0x8263ED70 = {}  # ptr at 0x82648084
+0x8263ED80 = {}  # ptr at 0x826488cc
+0x8263ED90 = {}  # ptr at 0x826482e4
+0x8263EDA0 = {}  # ptr at 0x826486ac
+0x8263EDB0 = {}  # ptr at 0x82647f0c
+0x8263EDC0 = {}  # ptr at 0x82648964
+0x8263EDD0 = {}  # ptr at 0x826486fc
+0x8263EDE0 = {}  # ptr at 0x82647f5c
+0x8263EDF0 = {}  # ptr at 0x82648334
+0x826CEE10 = {}  # ptr at 0x826bb470, 0x826bb4e4
+0x827048A8 = {}  # ptr at 0x8271da5c
+0x827857F8 = {}  # ptr at 0x82354630, 0x823546c0
+0x827BFA88 = {}  # ptr at 0x8235908c, 0x8235cc3c, 0x8235cca4
+0x827EF530 = {}  # ptr at 0x82362318
+0x827F1930 = {}  # ptr at 0x823623d8, 0x823624f0, 0x82362688
+0x827F1938 = {}  # ptr at 0x82362414
+0x827F1948 = {}  # ptr at 0x823623e4, 0x823624fc, 0x82362694
+0x827F1950 = {}  # ptr at 0x823623c8, 0x823624e0, 0x82362678
+0x827F79E0 = {}  # ptr at 0x8236240c, 0x82362524, 0x823626bc
+0x827F79E8 = {}  # ptr at 0x823623f0, 0x82362508, 0x823626a0
+0x827F79F0 = {}  # ptr at 0x823623d4, 0x823624ec, 0x82362684
+0x827F79F8 = {}  # ptr at 0x8236282c
+0x827F7A08 = {}  # ptr at 0x82362810, 0x823628d0
+0x827F7A10 = {}  # ptr at 0x823623d0, 0x823624e8, 0x82362680
+0x827F7A18 = {}  # ptr at 0x823627e0, 0x823628a0
+0x827F7CC0 = {}  # ptr at 0x823628ec
+0x827F7CD0 = {}  # ptr at 0x82362818, 0x823628d8
+0x827F7CD8 = {}  # ptr at 0x82362410, 0x82362528, 0x823626c0
+0x827F82B8 = {}  # ptr at 0x823629c4
+0x827F8E00 = {}  # ptr at 0x82362958
+0x827F9B50 = {}  # ptr at 0x82362a1c
+0x8280B878 = {}  # ptr at 0x82366ac8, 0x82366acc
+0x828644F0 = {}  # ptr at 0x823895bc
+0x828644F8 = {}  # ptr at 0x823895e4
+0x82864500 = {}  # ptr at 0x823895d4
+0x82864510 = {}  # ptr at 0x823895a0
+0x82864540 = {}  # ptr at 0x823895a4
+0x82864558 = {}  # ptr at 0x823895e8
+0x82878308 = {}  # ptr at 0x82878360, 0x8287f2f4
+0x828B95D8 = {}  # ptr at 0x828c0414
+0x828BC518 = {}  # ptr at 0x828baa70

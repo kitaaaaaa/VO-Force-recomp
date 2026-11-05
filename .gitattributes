@@ -1,0 +1,5 @@
+# Keep patch files byte-exact so `git apply` works on every platform.
+*.patch -text
+# cmd.exe needs CRLF in batch files, including in GitHub's Download ZIP.
+*.bat text eol=crlf
+*.ps1 text eol=crlf

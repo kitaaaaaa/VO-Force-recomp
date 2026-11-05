@@ -1,0 +1,206 @@
+diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
+index 19874a5..6f11fee 100644
+--- a/src/graphics/d3d12/command_processor.cpp
++++ b/src/graphics/d3d12/command_processor.cpp
+@@ -2524,6 +2524,35 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
+     }
+   }
+ 
++  // Ensure 1D textures too wide for the host, read from the shared memory by
++  // the vertex shader as data tables, are resident.
++  uint32_t vs_textures_remaining = vertex_shader->GetUsedTextureMaskAfterTranslation();
++  uint32_t vs_texture_index;
++  while (rex::bit_scan_forward(vs_textures_remaining, &vs_texture_index)) {
++    vs_textures_remaining &= ~(uint32_t(1) << vs_texture_index);
++    xenos::xe_gpu_texture_fetch_t fetch = regs.GetTextureFetch(vs_texture_index);
++    if (fetch.dimension != xenos::DataDimension::k1D ||
++        fetch.size_1d.width < xenos::kTexture2DCubeMaxWidthHeight) {
++      continue;
++    }
++    if (fetch.format != xenos::TextureFormat::k_8_8_8_8 ||
++        fetch.endianness != xenos::Endian::kNone || fetch.swizzle != 0x688 /* XYZW */ ||
++        fetch.sign_x != xenos::TextureSign::kUnsigned || fetch.exp_adjust != 0) {
++      static bool unsupported_reported = false;
++      if (!unsupported_reported) {
++        unsupported_reported = true;
++        REXGPU_ERROR("Wide 1D texture not handled: {:08X} {:08X} {:08X} {:08X}", fetch.dword_0,
++                     fetch.dword_1, fetch.dword_2, fetch.dword_3);
++      }
++    }
++    if (!shared_memory_->RequestRange(fetch.base_address << 12,
++                                      (fetch.size_1d.width + 1) * sizeof(uint32_t))) {
++      REXGPU_ERROR("Failed to request wide 1D texture at 0x{:08X} in the shared memory",
++                   fetch.base_address << 12);
++      return false;
++    }
++  }
++
+   // Gather memexport ranges and ensure the heaps for them are resident, and
+   // also load the data surrounding the export and to fill the regions that
+   // won't be modified by the shaders.
+diff --git a/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp b/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp
+index 31de175..f3d01b8 100644
+--- a/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp
++++ b/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp
+@@ -684,6 +684,72 @@ void DxbcShaderTranslator::ProcessTextureFetchInstruction(
+     return;
+   }
+ 
++  // 1D textures wider than the host maximum, used by games as data tables
++  // (5345084C looks up per-object colors from the vertex shader, point-sampled
++  // with unnormalized coordinates). No host texture exists for them, so read
++  // the texel from the shared memory. Only unsigned k_8_8_8_8 with no swizzle or
++  // exponent bias is handled; D3D12CommandProcessor reports anything else.
++  bool wide_1d_possible = instr.opcode == FetchOpcode::kTextureFetch &&
++                          instr.dimension == xenos::FetchOpDimension::k1D &&
++                          instr.attributes.unnormalized_coordinates;
++  if (wide_1d_possible) {
++    uint32_t wide_temp = PushSystemTemp();
++    a_.OpUBFE(dxbc::Dest::R(wide_temp, 0b0001), dxbc::Src::LU(24), dxbc::Src::LU(0),
++              RequestTextureFetchConstantWord(tfetch_index, 2));
++    a_.OpUGE(dxbc::Dest::R(wide_temp, 0b0010), dxbc::Src::R(wide_temp, dxbc::Src::kXXXX),
++             dxbc::Src::LU(xenos::kTexture2DCubeMaxWidthHeight));
++    a_.OpIf(true, dxbc::Src::R(wide_temp, dxbc::Src::kYYYY));
++    {
++      bool coord_operand_temp_pushed = false;
++      dxbc::Src coord_operand =
++          LoadOperand(instr.operands[0], 0b0001, coord_operand_temp_pushed).SelectFromSwizzled(0);
++      a_.OpAdd(dxbc::Dest::R(wide_temp, 0b0010), coord_operand,
++               dxbc::Src::LF(instr.attributes.offset_x));
++      if (coord_operand_temp_pushed) {
++        PopSystemTemp();
++      }
++    }
++    // Clamp the texel index to the table, then make the byte address.
++    a_.OpRoundNI(dxbc::Dest::R(wide_temp, 0b0010), dxbc::Src::R(wide_temp, dxbc::Src::kYYYY));
++    a_.OpFToI(dxbc::Dest::R(wide_temp, 0b0010), dxbc::Src::R(wide_temp, dxbc::Src::kYYYY));
++    a_.OpIMax(dxbc::Dest::R(wide_temp, 0b0010), dxbc::Src::R(wide_temp, dxbc::Src::kYYYY),
++              dxbc::Src::LI(0));
++    a_.OpUMin(dxbc::Dest::R(wide_temp, 0b0010), dxbc::Src::R(wide_temp, dxbc::Src::kYYYY),
++              dxbc::Src::R(wide_temp, dxbc::Src::kXXXX));
++    a_.OpAnd(dxbc::Dest::R(wide_temp, 0b0001), RequestTextureFetchConstantWord(tfetch_index, 1),
++             dxbc::Src::LU(~uint32_t(0xFFF)));
++    a_.OpIMAd(dxbc::Dest::R(wide_temp, 0b0001), dxbc::Src::R(wide_temp, dxbc::Src::kYYYY),
++              dxbc::Src::LU(sizeof(uint32_t)), dxbc::Src::R(wide_temp, dxbc::Src::kXXXX));
++    // The shared memory may be bound as an SRV or a UAV, as in vfetch.
++    a_.OpAnd(dxbc::Dest::R(system_temp_result_, 0b0001), LoadFlagsSystemConstant(),
++             dxbc::Src::LU(kSysFlag_SharedMemoryIsUAV));
++    a_.OpIf(false, dxbc::Src::R(system_temp_result_, dxbc::Src::kXXXX));
++    if (srv_index_shared_memory_ == kBindingIndexUnallocated) {
++      srv_index_shared_memory_ = srv_count_++;
++    }
++    if (uav_index_shared_memory_ == kBindingIndexUnallocated) {
++      uav_index_shared_memory_ = uav_count_++;
++    }
++    a_.OpLdRaw(dxbc::Dest::R(system_temp_result_, 0b0001),
++               dxbc::Src::R(wide_temp, dxbc::Src::kXXXX),
++               dxbc::Src::T(srv_index_shared_memory_, uint32_t(SRVMainRegister::kSharedMemory)));
++    a_.OpElse();
++    a_.OpLdRaw(dxbc::Dest::R(system_temp_result_, 0b0001),
++               dxbc::Src::R(wide_temp, dxbc::Src::kXXXX),
++               dxbc::Src::U(uav_index_shared_memory_, uint32_t(UAVRegister::kSharedMemory)));
++    a_.OpEndIf();
++    // Unpack k_8_8_8_8 to 0...1.
++    a_.OpUBFE(dxbc::Dest::R(system_temp_result_), dxbc::Src::LU(8), dxbc::Src::LU(0, 8, 16, 24),
++              dxbc::Src::R(system_temp_result_, dxbc::Src::kXXXX));
++    a_.OpUToF(dxbc::Dest::R(system_temp_result_), dxbc::Src::R(system_temp_result_));
++    a_.OpMul(dxbc::Dest::R(system_temp_result_), dxbc::Src::R(system_temp_result_),
++             dxbc::Src::LF(1.0f / 255.0f));
++    StoreResult(instr.result, dxbc::Src::R(system_temp_result_));
++    a_.OpElse();
++    // Release wide_temp.
++    PopSystemTemp();
++  }
++
+   // Get offsets applied to the coordinates before sampling.
+   // `offsets` is used for float4 literal construction,
+   // FIXME(Triang3l): Offsets need to be applied at the LOD being fetched, not
+@@ -1970,6 +2036,9 @@ void DxbcShaderTranslator::ProcessTextureFetchInstruction(
+     a_.OpMov(dxbc::Dest::R(system_temp_result_, used_result_zero_components), dxbc::Src::LF(0.0f));
+   }
+   StoreResult(instr.result, dxbc::Src::R(system_temp_result_));
++  if (wide_1d_possible) {
++    a_.OpEndIf();
++  }
+ }
+ 
+ }  // namespace rex::graphics
+diff --git a/src/graphics/pipeline/texture/cache.cpp b/src/graphics/pipeline/texture/cache.cpp
+index 76f5600..367bf0d 100644
+--- a/src/graphics/pipeline/texture/cache.cpp
++++ b/src/graphics/pipeline/texture/cache.cpp
+@@ -942,10 +942,7 @@ void TextureCache::BindingInfoFromFetchConstant(const xenos::xe_gpu_texture_fetc
+     bool is_invalid_1d = false;
+     // TODO(Triang3l): Support long 1D textures.
+     if (width_minus_1 >= xenos::kTexture2DCubeMaxWidthHeight) {
+-      REXGPU_ERROR(
+-          "1D texture is too wide ({}) - ignoring! Report the game to Xenia "
+-          "developers",
+-          width_minus_1 + 1);
++      // No host texture: DxbcShaderTranslator reads these from the shared memory.
+       is_invalid_1d = true;
+     }
+     assert_false(fetch.tiled);
+diff --git a/src/kernel/xam/xam_content.cpp b/src/kernel/xam/xam_content.cpp
+index 1fb1e16..1a48ff0 100644
+--- a/src/kernel/xam/xam_content.cpp
++++ b/src/kernel/xam/xam_content.cpp
+@@ -21,6 +21,8 @@
+ #include <rex/system/xenumerator.h>
+ #include <rex/system/xtypes.h>
+ 
++#include <fmt/format.h>
++
+ REXCVAR_DEFINE_UINT32(license_mask, 0, "Kernel", "Set license mask for activated content");
+ 
+ namespace rex {
+@@ -141,6 +143,32 @@ u32 xeXamContentCreate(u32 user_index, mapped_string root_name, mapped_void cont
+     *disposition_ptr = 0;
+   }
+ 
++  // A file name that is not text cannot name a package. Refuse it here: turning
++  // it into a host path throws, which is fatal on the dispatch thread.
++  {
++    const std::string file_name = content_data.file_name();
++    std::string hex;
++    bool is_text = true;
++    for (const char c : file_name) {
++      hex += fmt::format("{:02X}", uint8_t(c));
++      is_text &= uint8_t(c) >= 0x20 && uint8_t(c) < 0x7F;
++    }
++    REXKRNL_INFO("XamContentCreate: root {} type {:08X} flags {:X} name {} ({})", root_name.value(),
++                 uint32_t(XContentType(content_data.content_type)), uint32_t(flags),
++                 is_text ? file_name : "?",
++                 hex);
++    if (!is_text) {
++      if (!overlapped_ptr) {
++        return X_ERROR_FILE_NOT_FOUND;
++      }
++      REX_KERNEL_STATE()->CompleteOverlappedImmediateEx(overlapped_ptr.guest_address(),
++                                                        X_ERROR_FILE_NOT_FOUND,
++                                                        X_HRESULT_FROM_WIN32(X_ERROR_FILE_NOT_FOUND),
++                                                        0);
++      return X_ERROR_IO_PENDING;
++    }
++  }
++
+   auto run = [content_manager, xuid, root_name = root_name.value(), flags, content_data,
+               disposition_ptr,
+               license_mask_ptr](uint32_t& extended_error, uint32_t& length) -> X_RESULT {
+diff --git a/src/system/xam/content_manager.cpp b/src/system/xam/content_manager.cpp
+index bd6c797..9631000 100644
+--- a/src/system/xam/content_manager.cpp
++++ b/src/system/xam/content_manager.cpp
+@@ -156,8 +156,10 @@ std::vector<XCONTENT_AGGREGATE_DATA> ContentManager::ListContent(uint32_t device
+     }
+ 
+     XCONTENT_AGGREGATE_DATA content_data;
+-    if (XSUCCEEDED(ReadContentHeaderFile(rex::path_to_utf8(file_info.name), xuid, title_id,
+-                                         content_type, content_data))) {
++    // Not XSUCCEEDED: that tests NTSTATUS severity bits, and an X_RESULT error such as
++    // X_ERROR_FILE_NOT_FOUND (2) passes it, which would return uninitialized data.
++    if (ReadContentHeaderFile(rex::path_to_utf8(file_info.name), xuid, title_id, content_type,
++                              content_data) == X_ERROR_SUCCESS) {
+       result.emplace_back(std::move(content_data));
+     } else {
+       content_data.device_id = device_id;
