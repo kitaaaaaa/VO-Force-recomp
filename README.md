@@ -2,10 +2,8 @@
 
 **Mind Shift Battle System · M.S.B.S. Ver.7.7 · Windows-host field deployment**
 
-Developed and distributed jointly by **Sentinel Electronics** and **General Aerodyne**.
+Developed and distributed jointly by **Sentinel Electronics** and **General Aerodyne** with support from **Open Virturon Gate** and the **Limited War Commission**
 Authorized for Virtuaroid pilots of all affiliated Plants.
-
-<sub>Out of character: this is an unofficial fan recompilation of Dennou Senki Virtual-On Force (Xbox 360) for Windows. No game files are included, and you need your own copy. The real details are at the bottom of this page.</sub>
 
 > [!NOTE]
 > Alpha deployment. Frames can be linked and sorties completed, but not every protocol
@@ -120,11 +118,10 @@ cmake --build out\build\win-amd64-release
 
 ---
 
-## Out of character
+
 
 **Legal.** Unofficial fan project, not affiliated with or endorsed by SEGA or Microsoft. Virtual-On
-is a trademark of SEGA. Sentinel Electronics, General Aerodyne, the safety notice and everything
-else in-universe on this page are fiction. No copyrighted game data or recompiled game code is
+is a trademark of SEGA. Characters copyright of Hajime Katoki. No copyrighted game data or recompiled game code is
 provided here; both stay on your own PC. You need your own copy of the game.
 
 **Credits.**
