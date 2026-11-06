@@ -7,9 +7,12 @@
 #include <rex/filesystem.h>
 #include <rex/rex_app.h>
 
+#include <cstdlib>
 #include <filesystem>
+#include <string>
 
 #include "debug_tools.h"
+#include "game_files.h"
 
 class ForceApp : public rex::ReXApp {
  public:
@@ -36,13 +39,17 @@ class ForceApp : public rex::ReXApp {
   // std::unique_ptr<rex::ui::AchievementNotificationDialog>
   // CreateAchievementNotificationDialog() override;
   // void OnShutdown() override {}
-  // No --game_data_root: use assets next to the exe, else the project's assets
-  // (the dev build lives in out/build/<preset>).
+  // No --game_data_root: find the game files (extracted, or a disc image, which
+  // is unpacked on first launch) so double-clicking works.
   void OnConfigurePaths(rex::PathConfig& paths) override {
-    if (!paths.game_data_root.empty()) return;
-    const auto exe_dir = rex::filesystem::GetExecutableFolder();
-    paths.game_data_root = std::filesystem::exists(exe_dir / "assets")
-                               ? exe_dir / "assets"
-                               : exe_dir / "../../../assets";
+    if (paths.game_data_root.empty()) {
+      std::string error;
+      paths.game_data_root = force::LocateGameFiles(rex::filesystem::GetExecutableFolder(), &error);
+      if (paths.game_data_root.empty()) {
+        force::ShowError(error);
+        std::exit(1);
+      }
+    }
+    force::InstallDlc(paths.game_data_root, paths.user_data_root);
   }
 };

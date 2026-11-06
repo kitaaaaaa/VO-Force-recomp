@@ -1,4 +1,6 @@
-# One-click setup: from a disc image to a built game. Run by "Play Virtual-On Force.bat".
+# Builds the game from source, from a disc image to force.exe.
+#
+#   powershell -ExecutionPolicy Bypass -File tools\setup.ps1 [<your image>.iso]
 #
 # Everything is downloaded into .tools\ next to this project; nothing is installed on
 # the system except Visual Studio's C++ tools, and those only after asking. Running it
@@ -14,7 +16,6 @@ $Logs = Join-Path $Root 'logs'
 $Exe = Join-Path $Root 'out\build\win-amd64-release\force.exe'
 
 $XexSha256 = '9FE5B63F76A089804F8B18D7F53F285E2743BFE5D8B43ED9A7E863DAAD5148C0'
-$StringsSha256 = 'DC2C7BC642360E250B1B564B7A9003ED52C4124DCBBDC7DB0C2BEB59559D2CE6'
 $SdkTag = 'v0.10.0'
 $SdkUrl = 'https://github.com/rexglue/rexglue-sdk.git'
 
@@ -130,7 +131,7 @@ function Ensure-VisualStudio {
 
 function Find-Iso {
   if ($Iso) { return $Iso }
-  $found = @(Get-ChildItem $Root -Filter *.iso)
+  $found = @(Get-ChildItem $Root, $Assets -Filter *.iso)
   if ($found.Count -eq 1) { return $found[0].FullName }
   Add-Type -AssemblyName System.Windows.Forms
   $dialog = New-Object System.Windows.Forms.OpenFileDialog
@@ -153,21 +154,6 @@ function Install-Game {
   }
 }
 
-# The English text replaces media\string_array.bin; the original is kept beside it.
-function Install-Translation {
-  $strings = Join-Path $Assets 'media\string_array.bin'
-  $original = Join-Path $Assets 'media\string_array.original.bin'
-  if (Test-Path $original) { return }
-  if ((Get-FileHash $strings -Algorithm SHA256).Hash -ne $StringsSha256) {
-    Fail 'media\string_array.bin is not the original Japanese text.'
-  }
-  Step 'Applying the English text'
-  $out = Join-Path $Tools 'string_array.bin'
-  Run (Join-Path $Tools 'python\python.exe') (Join-Path $PSScriptRoot 'translation\build_strings.py') $strings $out
-  Copy-Item $strings $original
-  Copy-Item $out $strings -Force
-}
-
 New-Item -ItemType Directory -Force $Tools, $Logs | Out-Null
 Start-Transcript -Path (Join-Path $Logs 'setup.log') -Append | Out-Null
 $started = Get-Date
@@ -187,7 +173,6 @@ $env:GIT_CONFIG_KEY_1 = 'core.symlinks'
 $env:GIT_CONFIG_VALUE_1 = 'false'
 
 Install-Game
-Install-Translation
 Build-Sdk
 
 $env:REXSDK = Join-Path $Tools 'rexsdk'

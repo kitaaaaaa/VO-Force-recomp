@@ -15,6 +15,7 @@ set(FORCE_SOURCES
     src/main.cpp
     src/stl_compat.cpp
     src/debug_tools.cpp
+    src/game_files.cpp
 )
 
 if(WIN32)

@@ -36,16 +36,14 @@ Your Plant must hold its own licensed combat data: a disc image (`.iso`) of
 **Dennou Senki Virtual-On Force** (Xbox 360, Japan, Title ID `5345084C`).
 **Combat data is not distributed with this build.** Unlicensed data cannot establish a link.
 
-1. **Acquire the deployment package.** Use **Code → Download ZIP** at the top of this page and
-   unpack it to any secure terminal.
-2. **Place your disc image in the unpacked folder.** If you skip this, you will be asked for it.
-3. **Double-click `Play Virtual-On Force.bat`.**
+1. **Acquire the deployment package.** Download the latest `VO-Force-recomp-…-win64.zip` from
+   [Releases](https://github.com/kitaaaaaa/VO-Force-recomp/releases) and unpack it to any secure
+   terminal.
+2. **Place your disc image in the `assets` folder** inside it.
+3. **Double-click `force.exe`.**
 
-The first ingress assembles the system at your terminal from your own combat data. Download
-volume, storage and duration are listed below. The console window can be left unattended, unless
-your terminal has no Microsoft C++ build tools. In that case it asks once whether to install them.
-
-Every later ingress: double-click the same file. The link opens immediately.
+The first ingress unpacks your combat data into `assets`, which takes a moment before the window
+appears. The disc image is not needed after that. Every later ingress: double-click the same file.
 
 ### Terminal requirements
 
@@ -53,36 +51,39 @@ Every later ingress: double-click the same file. The link opens immediately.
 |---|---|
 | Operating system | Windows 10 or 11, 64-bit |
 | Display adapter | DirectX 12 |
-| Storage | About 8 GB, on the drive holding this folder |
-| Download volume | About 1.1 GB, plus about 7 GB if the C++ build tools must be installed |
-| First assembly | About 20 minutes on the reference terminal, including downloads. Slower terminals and connections take longer. |
-| Build tools | Downloaded into `.tools` in this folder. Only the Microsoft C++ build tools are installed on the system, and only with your approval. |
+| Storage | About 1 GB once your combat data is unpacked, plus the disc image until you remove it |
 
-### If assembly fails
+### Supplementary mission data
 
-The full record is in `logs\setup.log`. Attach it to your incident report. Running the same file
-again resumes from where assembly stopped.
+Mission pack DLC is not distributed with this build either. If your Plant holds the package files,
+place them in `assets` under their original file names. They are installed at the next ingress.
 
 ## Field modifications
 
-Active by default in this deployment. Each can be withdrawn with a launch argument, for example
-`"Play Virtual-On Force.bat" --unlock_all_vrs=false` once assembly is complete.
+The system deploys in its certified state: Japanese-language briefings and your service record's
+own progress. Modifications are issued with a launch argument, for example
+`force.exe --english=true` from a shortcut or a command prompt.
 
 | Modification | Argument | Effect |
 |---|---|---|
-| Full frame authorization | `--unlock_all_vrs` | Every Virtuaroid is issued to the pilot. Reaches your service record the next time it saves. |
-| Extra parts clearance | `--unlock_extra_parts` | The Fei-Yen and Angelan extra parts option, already held in the combat data, is released. |
-| EX OPTIONS allocation | `--unlock_ex_options` | Enough points to raise LIFE and ATTACK to their limit of 10. |
-| V-converter window repair | `--fix_fei_window` | The border of Fei-Yen's V-converter window stays visible from every angle. |
-| English-language briefing | none | Menus and mission briefings are issued in English, in place of the original Japanese text. |
+| English-language briefing | `--english=true` | Menus and mission briefings are issued in English, in place of the original Japanese text. |
+| Full frame authorization | `--unlock_all_vrs=true` | Every Virtuaroid is issued to the pilot. Reaches your service record the next time it saves. |
+| EX OPTIONS allocation | `--unlock_ex_options=true` | Enough points to raise LIFE and ATTACK to their limit of 10. |
+
+Standing provisions, always active:
+
+| Provision | Effect |
+|---|---|
+| Extra parts clearance | The Fei-Yen and Angelan extra parts option, already held in the combat data, is released. |
+| V-converter window repair | The border of Fei-Yen's V-converter window stays visible from every angle. |
 
 ## Status board
 
 | Protocol | Status |
 |---|---|
-| Disc to running system through the one-click procedure | Verified |
+| Disc image to running system through `force.exe` | Verified |
 | Sorties with AI opponents, training, menus, service record | Working |
-| English text in menus and briefings | Working |
+| English text in menus and briefings, with `--english=true` | Working |
 | English text drawn into images | Not yet translated |
 | Kill-cam replay | The feed can stay black for a moment before the kill |
 | Campaign, start to finish | Not verified |
@@ -91,14 +92,15 @@ Active by default in this deployment. Each can be withdrawn with a launch argume
 Pending field work: unsealing the VR viewer camera, and tuning turning, lock-on and dashing to
 M.S.B.S. Ver.5.66 standard. See [notes/PATCHES.md](notes/PATCHES.md).
 
-Attach `logs\force.log` to all incident reports.
+Attach the file from the `logs` folder next to `force.exe` to all incident reports.
 
 ## Maintenance desk: building by hand
 
 For technicians. Pilots do not need this section.
 
-You need Visual Studio 2022 with **Desktop development with C++**, Clang 20 or newer, CMake 3.25 or
-newer, and Ninja. Then build [ReXGlue SDK v0.10.0](https://github.com/rexglue/rexglue-sdk) with the
+`tools\setup.ps1 <your image>.iso`, run in PowerShell, downloads the tools into `.tools` and does all
+of this. By hand, you need Visual Studio 2022 with **Desktop development with C++**, Clang 20 or newer,
+CMake 3.25 or newer, and Ninja. Then build [ReXGlue SDK v0.10.0](https://github.com/rexglue/rexglue-sdk) with the
 patch in [sdk-patches/](sdk-patches/README.md), put the game in [assets/](assets/README.md), and:
 
 ```
@@ -107,13 +109,15 @@ cmake --preset win-amd64-release -DCMAKE_PREFIX_PATH=<SDK prefix>
 cmake --build out\build\win-amd64-release
 ```
 
+`python tools/package_release.py <version>` then assembles the release zip in `dist/`.
+
 | Path | What |
 |---|---|
-| `Play Virtual-On Force.bat`, `tools/setup.ps1` | The one-click procedure |
+| `tools/setup.ps1`, `tools/package_release.py` | Building from source, and assembling a release |
 | `force_manifest.toml`, `force_config.toml` | Recompiler settings and hand-fixed function boundaries |
 | `src/` | The PC side: startup and patches |
 | `sdk-patches/` | Fixes this game needs in the SDK |
-| `tools/translation/` | English text and the tool that builds it into the game's string table |
+| `tools/translation/` | English text and the tool that builds it into `src/english_text.inc` |
 | `generated/default/` | Recompiled code, generated locally and never committed |
 
 ---
@@ -121,8 +125,8 @@ cmake --build out\build\win-amd64-release
 
 
 **Legal.** Unofficial fan project, not affiliated with or endorsed by SEGA or Microsoft. Virtual-On
-is a trademark of SEGA. Characters copyright of Hajime Katoki. No copyrighted game data or recompiled game code is
-provided here; both stay on your own PC. You need your own copy of the game.
+is a trademark of SEGA. Characters copyright of Hajime Katoki. No game files or DLC are
+provided here. You need your own copy of the game.
 
 **Credits.**
 - [ReXGlue](https://github.com/rexglue/rexglue-sdk), the recompilation SDK

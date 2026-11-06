@@ -1,6 +1,9 @@
 """Build the English media/string_array.bin from the original and strings_en.py.
 
 Usage: python build_strings.py <original string_array.bin> <output> [report.txt]
+
+The output's bytes also go to src/english_text.inc, which is compiled into the game
+and replaces the table it loads when run with --english.
 """
 
 import re
@@ -146,6 +149,9 @@ def main():
     data = struct.pack(f">{count}I", *offsets) + bytes(blob)
     check_relocation(data, out)
     Path(sys.argv[2]).write_bytes(data)
+    rows = [data[i:i + 32] for i in range(0, len(data), 32)]
+    (Path(__file__).parents[2] / "src" / "english_text.inc").write_text(
+        "".join("".join(f"{b}," for b in row) + "\n" for row in rows))
     print(f"{count} strings, {len(data)} bytes (original {len(d)}), {len(report)} notes; relocation check passed")
     if len(sys.argv) > 3:
         Path(sys.argv[3]).write_text("\n".join(report), encoding="utf-8")

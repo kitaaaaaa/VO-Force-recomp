@@ -9,6 +9,6 @@
 
 ## Done
 - All VRs owned: `--unlock_all_vrs`.
-- DLC pack 0 options: `--unlock_extra_parts`.
+- DLC pack 0 options: always on. DLC packages in `assets` are installed at startup (`src/game_files.cpp`).
 - EX OPTIONS points for LIFE 10 and ATTACK 10: `--unlock_ex_options`.
-- Fei-Yen V-converter window: `--fix_fei_window` (`src/debug_tools.cpp`).
+- Fei-Yen V-converter window: always on (`src/debug_tools.cpp`).

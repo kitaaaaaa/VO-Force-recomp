@@ -1,6 +1,7 @@
 # --- Build output ---
 /out/
 /build/
+/dist/
 *.pdb
 *.exe
 *.ilk
