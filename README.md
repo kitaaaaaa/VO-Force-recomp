@@ -69,6 +69,7 @@ own progress. Modifications are issued with a launch argument, for example
 | English-language briefing | `--english=true` | Menus and mission briefings are issued in English, in place of the original Japanese text. |
 | Full frame authorization | `--unlock_all_vrs=true` | Every Virtuaroid is issued to the pilot. Reaches your service record the next time it saves. |
 | EX OPTIONS allocation | `--unlock_ex_options=true` | Enough points to raise LIFE and ATTACK to their limit of 10. |
+| Full-HD combat feed | `--native_render_targets=true --native_resolution=1080` | The feed is rendered at exactly 1920×1080 instead of 1280×720. Both arguments are needed. |
 
 Standing provisions, always active:
 
@@ -85,7 +86,8 @@ Standing provisions, always active:
 | Sorties with AI opponents, training, menus, service record | Working |
 | English text in menus and briefings, with `--english=true` | Working |
 | English text drawn into images | Not yet translated |
-| Kill-cam replay | The feed can stay black for a moment before the kill |
+| Kill-cam replay, including melee finishes | Working |
+| 1920×1080 output, with the Full-HD arguments | Working |
 | Campaign, start to finish | Not verified |
 | Xbox LIVE and System Link | Not verified |
 
@@ -101,7 +103,7 @@ For technicians. Pilots do not need this section.
 `tools\setup.ps1 <your image>.iso`, run in PowerShell, downloads the tools into `.tools` and does all
 of this. By hand, you need Visual Studio 2022 with **Desktop development with C++**, Clang 20 or newer,
 CMake 3.25 or newer, and Ninja. Then build [ReXGlue SDK v0.10.0](https://github.com/rexglue/rexglue-sdk) with the
-patch in [sdk-patches/](sdk-patches/README.md), put the game in [assets/](assets/README.md), and:
+patches in [sdk-patches/](sdk-patches/README.md), put the game in [assets/](assets/README.md), and:
 
 ```
 rexglue codegen force_manifest.toml

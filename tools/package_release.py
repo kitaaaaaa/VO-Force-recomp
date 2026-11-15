@@ -48,6 +48,9 @@ when starting force.exe from a shortcut or a command prompt:
   --english=true            English text in menus and briefings
   --unlock_all_vrs=true     Own every VR. Reaches your save the next time it saves
   --unlock_ex_options=true  Enough EX OPTIONS points to raise LIFE and ATTACK to 10
+  --native_render_targets=true --native_resolution=1080
+                            Render at exactly 1920x1080 instead of 1280x720
+                            (both are needed)
 
 Alpha. Bug reports and logs are welcome at
 https://github.com/kitaaaaaa/VO-Force-recomp/issues
