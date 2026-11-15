@@ -1,5 +1,5 @@
 diff --git a/src/graphics/d3d12/command_processor.cpp b/src/graphics/d3d12/command_processor.cpp
-index 19874a5..6f11fee 100644
+index 19874a5..0ed40d1 100644
 --- a/src/graphics/d3d12/command_processor.cpp
 +++ b/src/graphics/d3d12/command_processor.cpp
 @@ -2524,6 +2524,35 @@ bool D3D12CommandProcessor::IssueDraw(xenos::PrimitiveType primitive_type, uint3
@@ -38,6 +38,36 @@ index 19874a5..6f11fee 100644
    // Gather memexport ranges and ensure the heaps for them are resident, and
    // also load the data surrounding the export and to fill the regions that
    // won't be modified by the shaders.
+@@ -3552,6 +3581,29 @@ void D3D12CommandProcessor::UpdateFixedFunctionState(
+         regs.Get<float>(XE_GPU_REG_RB_BLEND_BLUE),
+         regs.Get<float>(XE_GPU_REG_RB_BLEND_ALPHA),
+     };
++    // Direct3D 12 has no constant alpha factor: color blending reads the constant's
++    // RGB. When a written render target blends color with constant alpha, put the alpha
++    // in RGB (5345084C blends its melee finish blur this way). A draw also using
++    // constant color can't have both, and keeps the color.
++    bool blend_constant_color = false, blend_constant_alpha = false;
++    const uint32_t blend_color_mask = regs[XE_GPU_REG_RB_COLOR_MASK];
++    for (uint32_t i = 0; i < xenos::kMaxColorRenderTargets; ++i) {
++      if (!((blend_color_mask >> (i * 4)) & 0xF)) {
++        continue;
++      }
++      auto blendcontrol =
++          regs.Get<reg::RB_BLENDCONTROL>(reg::RB_BLENDCONTROL::rt_register_indices[i]);
++      for (xenos::BlendFactor factor : {xenos::BlendFactor(blendcontrol.color_srcblend),
++                                        xenos::BlendFactor(blendcontrol.color_destblend)}) {
++        blend_constant_color |= factor == xenos::BlendFactor::kConstantColor ||
++                                factor == xenos::BlendFactor::kOneMinusConstantColor;
++        blend_constant_alpha |= factor == xenos::BlendFactor::kConstantAlpha ||
++                                factor == xenos::BlendFactor::kOneMinusConstantAlpha;
++      }
++    }
++    if (blend_constant_alpha && !blend_constant_color) {
++      blend_factor[0] = blend_factor[1] = blend_factor[2] = blend_factor[3];
++    }
+     // std::memcmp instead of != so in case of NaN, every draw won't be
+     // invalidating it.
+     ff_blend_factor_update_needed_ |=
 diff --git a/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp b/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp
 index 31de175..f3d01b8 100644
 --- a/src/graphics/pipeline/shader/dxbc_translator_fetch.cpp
